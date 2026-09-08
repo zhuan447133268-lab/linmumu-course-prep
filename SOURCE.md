@@ -13,4 +13,4 @@
 4. **商用与合作**：需要商业授权请联系作者。
 
 > GitHub：https://github.com/zhuan447133268-lab/linmumu-course-prep
-> 联系方式：（补一行你的邮箱或微信）
+> 联系方式：zhuan447133268@163.com

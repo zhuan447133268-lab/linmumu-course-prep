@@ -3,6 +3,8 @@
 换主题 = 复制本文件，改内容。设计系统来自 deck_lib.py。
 用法：python make_pptx_workbench.py [学科族] [输出pptx路径] [配图目录]
   默认：文科  ./02_课件.pptx  ./_figs   （参数顺序与 make_pptx_v2.py 一致）
+  注意：配图先由 make_figs_workbench.py 生成到配图目录，再跑本脚本。
+依赖：python-pptx。
 """
 import os
 import sys

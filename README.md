@@ -26,7 +26,7 @@
 2. **装 Python**：python.org 下载，安装时勾选 "Add to PATH"
 3. **有桌面 PowerPoint 或 WPS**（多数老师已有）——生成后自动逐页截图自查排版用
 
-然后把整个 `linmumu-course-prep` 文件夹放进助手的知识/skill 目录（WorkBuddy：设置 → 技能 → 导入文件夹；Claude Code：复制到 `~/.claude/skills/`）。之后在对话框说「备一节 XX课 第X节 XX」即可。
+然后把整个 `linmumu-course-prep` 文件夹放进助手的知识/skill 目录（WorkBuddy：设置 → 技能 → 导入文件夹；Claude Code：复制到 `~/.claude/skills/`）。之后在对话框说「备一节 XX课 第X节 XX」即可。首次运行时助手会自动装齐排版组件（python-pptx、matplotlib 等）；装不上的环境会自动走降级路线，并在确认单里注明——不影响使用。
 
 ### 场景 C：什么都不装
 
