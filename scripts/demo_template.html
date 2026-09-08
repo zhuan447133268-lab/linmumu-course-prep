@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>交互演示模板（替换成你的主题）</title>
+<!--
+  ============ course-prep · 05_交互演示.html 骨架 ============
+  结构铁律（改内容，别改结构）：
+    1. 单文件，双击能开，无外部依赖，无英文菜单
+    2. 必须围绕"学生最常犯的错"做正确/错误两种状态的实时对比：
+       勾选「按错误理解算」→ 灰色虚线画出错误结果 + 显示差多少
+    3. 底部常驻一行「▶ 现在发生了什么：…」随操作实时更新
+    4. 换主题：改 TODO 标记处（模型计算 / SVG 绘制 / 状态文案）
+  本文件自带一个可运行的示例（两连杆机械臂 θ₂ 基准），替换时保持
+  DOM 结构和 update() 模式不变即可。
+
+  交付前检查：若本文件被 artifact 工具重新生成，会重新长出 data-page-node-id
+  噪音属性，打包/分发前须清理（sed 或 re.sub 一条命令）。
+  换肤铁律：颜色一律用下方 :root 的 CSS 变量，不许写字面色值。
+  默认 = 工科族，与 deck_lib.PALETTES['工科'] 一一对应；
+  换学科族只改 :root 四行（主色/辅色/深色/底色），全文自动跟随。
+-->
+<style>
+  :root {
+    --primary:   #FF6B35;  /* 主色（工科·工业橙）*/
+    --primary-soft: #FFECE3;
+    --secondary: #00A08A;  /* 辅色（工科·青绿）*/
+    --secondary-soft: #DDF3EF;
+    --dark:      #0B1F3A;  /* 深色（工科·墨蓝）*/
+    --bg:        #F7F4EE;  /* 底色（工科·米白）*/
+    --line:      #E5DFD2;  /* 分隔线/边框（设计系统中性色）*/
+    --gray:      #6B7280;  /* 弱化文字 */
+    --muted:     #9AA3AD;  /* 错误态灰虚线专用（对错对比的"灰"，非学科色）*/
+  }
+  * { margin:0; padding:0; box-sizing:border-box; font-family:"Microsoft YaHei",sans-serif; }
+  body { background:var(--bg); color:var(--dark); padding:24px; }
+  h1 { font-size:20px; margin-bottom:4px; }
+  .sub { font-size:13px; color:var(--gray); margin-bottom:18px; }
+  .panel { display:flex; gap:24px; flex-wrap:wrap; }
+  .stage { flex:2; min-width:320px; background:#fff; border:1px solid var(--line); border-radius:12px; padding:12px; }
+  .ctrl { flex:1; min-width:240px; background:#fff; border:1px solid var(--line); border-radius:12px; padding:18px; }
+  .ctrl label { display:block; font-size:14px; margin:14px 0 4px; }
+  .ctrl input[type=range] { width:100%; }
+  .val { font-size:13px; color:var(--primary); font-weight:bold; }
+  .wrongbox { margin-top:18px; padding:12px; background:var(--primary-soft); border-radius:8px; font-size:14px; }
+  .gap { font-size:22px; font-weight:bold; color:var(--primary); margin-top:6px; }
+  #status { margin-top:16px; padding:12px 16px; background:var(--dark); color:#fff;
+            border-radius:8px; font-size:14px; }
+  svg { width:100%; height:auto; display:block; }
+</style>
+</head>
+<body>
+
+<h1>TODO：演示标题（一句话说清看什么）</h1>
+<div class="sub">TODO：一句副标题，说明拖动什么、勾选什么</div>
+
+<div class="panel">
+  <div class="stage">
+    <!-- TODO ① 画面：换成你的主题的 SVG 绘制。保留三层结构：
+         实体层 g#good（正确结果） / 错误层 g#bad（灰虚线，仅勾选时显示）
+         颜色用 style + var(--…)，不许写字面色值 -->
+    <svg viewBox="0 0 400 300">
+      <line x1="20" y1="280" x2="380" y2="280" style="stroke:var(--line)" stroke-width="2"/>
+      <g id="good">
+        <line id="arm1" x1="60" y1="280" x2="200" y2="180" style="stroke:var(--secondary)" stroke-width="8" stroke-linecap="round"/>
+        <line id="arm2" x1="200" y1="180" x2="290" y2="120" style="stroke:var(--dark)" stroke-width="8" stroke-linecap="round"/>
+        <circle id="tipG" cx="290" cy="120" r="8" style="fill:var(--primary)"/>
+      </g>
+      <g id="bad" style="display:none">
+        <line id="arm2w" x1="200" y1="180" x2="330" y2="230" style="stroke:var(--muted)" stroke-width="6"
+              stroke-dasharray="8 6" stroke-linecap="round"/>
+        <circle id="tipB" cx="330" cy="230" r="8" style="fill:var(--muted)"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="ctrl">
+    <!-- TODO ② 参数：换成你的主题的可变参数（1~3 个，多了就乱） -->
+    <label>参数一（TODO 改名）<span class="val" id="v1">60°</span></label>
+    <input type="range" id="p1" min="0" max="90" value="60">
+    <label>参数二（TODO 改名）<span class="val" id="v2">30°</span></label>
+    <input type="range" id="p2" min="0" max="90" value="30">
+
+    <div class="wrongbox">
+      <label style="margin:0">
+        <input type="checkbox" id="wrong"> 按<b>学生常犯的错误理解</b>算
+      </label>
+      <div class="gap" id="gap" style="display:none">差了 <span id="gapv">0</span> TODO 单位</div>
+    </div>
+  </div>
+</div>
+
+<div id="status">▶ 现在发生了什么：TODO③ 状态文案随参数实时更新</div>
+
+<script>
+// 几何常量只定义这一处——model() 和 update() 共用，改参数改这里就行
+var OX = 60, OY = 280, L1 = 200, L2 = 150;
+
+// ============ TODO ④ 模型：把下面三处换成你的主题 ============
+function model(p1, p2, wrong) {
+  // 返回 {good:{x,y}, bad:{x,y}|null, gap:数值, msg:"状态文案"}
+  // 示例：两连杆，末端 x = L1·cosθ1 + L2·cos(θ1+θ2)
+  var r = Math.PI/180;
+  var g = { x: OX + L1*Math.cos(p1*r) + L2*Math.cos((p1+p2)*r),
+            y: OY - L1*Math.sin(p1*r) - L2*Math.sin((p1+p2)*r) };
+  var bad = null, gap = 0;
+  if (wrong) {  // 错误理解：θ2 当成相对水平线
+    bad = { x: OX + L1*Math.cos(p1*r) + L2*Math.cos(p2*r),
+            y: OY - L1*Math.sin(p1*r) - L2*Math.sin(p2*r) };
+    gap = Math.round(Math.hypot(g.x-bad.x, g.y-bad.y));
+  }
+  var msg = wrong
+    ? '灰色虚线是错误理解的结果：末端偏了 ' + gap + ' mm，工件会直接抓空。'
+    : '绿色实线是正确结果：θ₁+θ₂ 累加后末端落在 (' + Math.round(g.x-OX) + ', ' + Math.round(OY-g.y) + ')。';
+  return { good:g, bad:bad, gap:gap, msg:msg };
+}
+
+function update() {
+  var p1 = +document.getElementById('p1').value;
+  var p2 = +document.getElementById('p2').value;
+  var w  = document.getElementById('wrong').checked;
+  var r  = model(p1, p2, w);
+
+  document.getElementById('v1').textContent = p1 + '°';
+  document.getElementById('v2').textContent = p2 + '°';
+  // TODO ⑤ 绘制：把 model 的结果画到 SVG
+  document.getElementById('arm1').setAttribute('x2', OX + L1*Math.cos(p1*Math.PI/180));
+  document.getElementById('arm1').setAttribute('y2', OY - L1*Math.sin(p1*Math.PI/180));
+  var e1x = +document.getElementById('arm1').getAttribute('x2'),
+      e1y = +document.getElementById('arm1').getAttribute('y2');
+  document.getElementById('arm2').setAttribute('x1', e1x); document.getElementById('arm2').setAttribute('y1', e1y);
+  document.getElementById('arm2').setAttribute('x2', r.good.x); document.getElementById('arm2').setAttribute('y2', r.good.y);
+  document.getElementById('tipG').setAttribute('cx', r.good.x); document.getElementById('tipG').setAttribute('cy', r.good.y);
+  document.getElementById('bad').style.display = w ? '' : 'none';
+  if (r.bad) {
+    document.getElementById('arm2w').setAttribute('x1', e1x); document.getElementById('arm2w').setAttribute('y1', e1y);
+    document.getElementById('arm2w').setAttribute('x2', r.bad.x); document.getElementById('arm2w').setAttribute('y2', r.bad.y);
+    document.getElementById('tipB').setAttribute('cx', r.bad.x); document.getElementById('tipB').setAttribute('cy', r.bad.y);
+    document.getElementById('gapv').textContent = r.gap;
+  }
+  document.getElementById('gap').style.display = w ? '' : 'none';
+  document.getElementById('status').textContent = '▶ 现在发生了什么：' + r.msg;
+}
+
+['p1','p2','wrong'].forEach(function(id){
+  document.getElementById(id).addEventListener('input', update);
+});
+update();
+</script>
+</body>
+</html>
