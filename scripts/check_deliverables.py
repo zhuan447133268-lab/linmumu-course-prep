@@ -73,8 +73,27 @@ def dist(a, b):
 
 
 def read(p):
+    """读文本。.docx 从 zip 抽 word/document.xml 按段落拼回纯文本（不依赖 python-docx，
+    巡检自身保持零额外依赖）；其余按 UTF-8 读。"""
     import io
+    if p.lower().endswith('.docx'):
+        try:
+            with zipfile.ZipFile(p) as z:
+                xml = z.read('word/document.xml').decode('utf-8', 'ignore')
+        except Exception:
+            return ''
+        paras = re.split(r'</w:p>', xml)
+        return '\n'.join(re.sub(r'<[^>]+>', '', x) for x in paras)
     return io.open(p, encoding='utf-8', errors='ignore').read()
+
+
+def pick(lesson, base):
+    """按基名取文件：03/04 自 v1.2 起 docx 直出，md 为旧版兜底。"""
+    for ext in ('.docx', '.md'):
+        p = os.path.join(lesson, base + ext)
+        if os.path.exists(p):
+            return p
+    return None
 
 
 # ---------------- 查1 ----------------
@@ -97,12 +116,13 @@ def check_numbers(lesson, results):
                         '把本节每个计算数字 assert 一遍，命名 _recalc.py 放本目录。'))
     # 数字台账（人工扫描跨文件不一致，如 253.6 只在某一个文件出现）
     inv = {}
-    for name in ('01_这一节的设计.md', '03_讲稿.md', '04_测验.md', '05_交互演示.html'):
-        p = os.path.join(lesson, name)
-        if not os.path.exists(p):
+    candidates = [pick(lesson, b) for b in ('01_这一节的设计', '03_讲稿', '04_测验')]
+    candidates.append(os.path.join(lesson, '05_交互演示.html'))
+    for p in candidates:
+        if not p or not os.path.exists(p):
             continue
+        tag = os.path.basename(p)[:2]
         for m in re.finditer(r'(\d+(?:\.\d+)?)\s*(mm|度|°|分钟|学时|Hz|kHz|kg|%|页)', read(p)):
-            tag = name[:2]
             inv.setdefault(m.group(2), {}).setdefault(m.group(1), set()).add(tag)
     lines = []
     for unit in sorted(inv):
@@ -166,6 +186,17 @@ def slide_count(pptx):
                    if re.match(r'ppt/slides/slide\d+\.xml$', n))
 
 
+def _ref_candidates(lesson):
+    for name in ('00_待你确认.md', '01_这一节的设计.md'):
+        p = os.path.join(lesson, name)
+        if os.path.exists(p):
+            yield p
+    for base in ('03_讲稿', '04_测验', '06_挑刺报告'):
+        p = pick(lesson, base)
+        if p:
+            yield p
+
+
 def check_refs(lesson, results):
     pptx = os.path.join(lesson, '02_课件.pptx')
     if not os.path.exists(pptx):
@@ -173,11 +204,8 @@ def check_refs(lesson, results):
         return
     total = slide_count(pptx)
     issues = []
-    for name in ('00_待你确认.md', '01_这一节的设计.md', '03_讲稿.md',
-                 '04_测验.md', '06_挑刺报告.md'):
-        p = os.path.join(lesson, name)
-        if not os.path.exists(p):
-            continue
+    for p in _ref_candidates(lesson):
+        name = os.path.basename(p)
         text = read(p)
         for m in re.finditer(r'第\s*(\d+)\s*页|(?<![A-Za-z0-9])P(\d+)\b', text):
             no = int(m.group(1) or m.group(2))
