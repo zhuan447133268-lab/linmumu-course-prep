@@ -11,6 +11,8 @@
 查2 配色 diff  抽取 05_交互演示.html 与 02_课件.pptx（slide XML）里全部 hex，
                与 deck_lib.PALETTES[学科族] 比对：精确命中或 RGB 距离<=30 的浅调
                视为通过，其余列出待人工判断（语义扩展色如工位色需在 00 说明）。
+               附项：05 的 SVG 取景检查（viewBox 必须紧凑，任一方向内容覆盖率
+               <50% 即 FAIL——防"沿用公式坐标系导致整页放大"）
 查3 引用存在性 提取 00/01/03/04/06 里的「第 X 页 / PX」引用和「N 页」总页数声明，
                与 02 课件实际页数比对。推荐引用一律用页面标题（kicker），天然不烂。
 
@@ -177,6 +179,69 @@ def check_colors(lesson, theme, results):
         n = sum(len(v) for v in found.values())
         results.append(('查2 配色 diff', 'PASS',
                         '%d 个颜色全部命中「%s」配色表、其浅调或中性色' % (n, theme)))
+    check_svg_frame(lesson, results)
+
+
+def check_svg_frame(lesson, results):
+    """查2 附项：05 的 SVG 取景检查。失败模式（实测踩坑）：viewBox 直接沿用
+    公式坐标系 → 画框大而内容缩在角落，页面被放大、大片空白。
+    合格线：内容包围盒在 viewBox 的横/纵两个方向覆盖率都 ≥50%。
+    修法：viewBox 手工紧凑取到紧贴图形，svg 加 max-width 限宽居中。"""
+    html = os.path.join(lesson, '05_交互演示.html')
+    if not os.path.exists(html):
+        return
+    raw = read(html)
+    m = re.search(r'<svg[^>]*viewBox="([^"]+)"', raw)
+    if not m:
+        results.append(('查2 SVG 取景', 'WARN', '05 里找不到带 viewBox 的 <svg>，跳过取景检查'))
+        return
+    nums = [float(x) for x in re.split(r'[ ,]+', m.group(1).strip())]
+    if len(nums) != 4 or nums[2] <= 0 or nums[3] <= 0:
+        return
+    vx, vy, vw, vh = nums
+    xs, ys = [], []
+    for tag in re.finditer(r'<(line|circle|ellipse|rect|polygon|text)\b([^>]*)>',
+                           raw):
+        t, attrs = tag.group(1), tag.group(2)
+        d = dict(re.findall(r'([\w:]+)="(-?[\d.]+)"', attrs))
+        try:
+            if t == 'line':
+                xs += [float(d['x1']), float(d['x2'])]
+                ys += [float(d['y1']), float(d['y2'])]
+            elif t in ('circle', 'ellipse'):
+                cx, cy = float(d.get('cx', 0)), float(d.get('cy', 0))
+                r = float(d.get('r', d.get('rx', 0)))
+                xs += [cx - r, cx + r]
+                ys += [cy - r, cy + r]
+            elif t == 'rect':
+                x, y = float(d.get('x', 0)), float(d.get('y', 0))
+                w_, h_ = float(d.get('width', 0)), float(d.get('height', 0))
+                xs += [x, x + w_]
+                ys += [y, y + h_]
+            elif t == 'polygon':
+                for px, py in re.findall(r'(-?[\d.]+)[, ]+(-?[\d.]+)', attrs):
+                    xs.append(float(px))
+                    ys.append(float(py))
+            elif t == 'text' and 'x' in d and 'y' in d:
+                xs.append(float(d['x']))
+                ys.append(float(d['y']))
+        except (KeyError, ValueError):
+            continue
+    if not xs:
+        return
+    cover_x = (max(xs) - min(xs)) / vw
+    cover_y = (max(ys) - min(ys)) / vh
+    worst = min(cover_x, cover_y)
+    if worst < 0.5:
+        results.append(('查2 SVG 取景', 'FAIL',
+                        '05 的 SVG 取景不紧凑：内容占画框横向 %.0f%% / 纵向 %.0f%%（任一方向 <50%% 即不合格），'
+                        '渲染出来会整页放大、大片空白。修法：viewBox 手工紧凑取到紧贴图形'
+                        '（勿直接沿用公式坐标系），svg 加 max-width 限宽居中。'
+                        % (cover_x * 100, cover_y * 100)))
+    else:
+        results.append(('查2 SVG 取景', 'PASS',
+                        '取景紧凑（内容占画框横向 %.0f%% / 纵向 %.0f%%）'
+                        % (cover_x * 100, cover_y * 100)))
 
 
 # ---------------- 查3 ----------------
@@ -215,6 +280,8 @@ def check_refs(lesson, results):
         for m in re.finditer(r'(?<![第每])0*(\d{1,2})\s*页', text):
             no = int(m.group(1))
             ctx = text[max(0, m.start() - 12):m.end() + 12].replace('\n', ' ')
+            if m.start() > 0 and text[m.start() - 1] in '.．':
+                continue  # 小数尾巴（如 7.08 页脚线）不是页数声明
             if '每页' in ctx:
                 continue
             if re.search(r'初版|旧版|原.{0,4}版', ctx):  # 历史版本说明不是总页数声明
